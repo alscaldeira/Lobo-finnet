@@ -1,4 +1,4 @@
-name: Build Python Executable
+name: Build Multiplatform Executables
 
 on:
   push:
@@ -6,8 +6,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # Cria 3 instâncias separadas: Windows, Linux e Mac
+        os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout code
@@ -18,19 +23,27 @@ jobs:
         with: 
           python-version: '3.11'
 
-      - name: Install PyInstaller and Dependencies
+      - name: Install Dependencies
+        # O GitHub usa uma sintaxe levemente diferente para rodar comandos múltiplos dependendo do OS
+        shell: bash
         run: |
-          pip install pyinstaller
-          pip install playwright
-          # Instala também os navegadores no servidor Windows do GitHub
+          pip install pyinstaller playwright
+          # Força o Playwright a baixar o navegador na pasta local do projeto para o PyInstaller encontrar
+          export PLAYWRIGHT_BROWSERS_PATH=0
           playwright install chromium
 
-      - name: Build with PyInstaller
-        # O `--hidden-import` garante que o módulo playwright seja embutido no .exe
+      - name: Build with PyInstaller (Windows)
+        if: matrix.os == 'windows-latest'
         run: pyinstaller --onefile --noconsole --hidden-import=playwright finnet.py
 
-      - name: Upload Windows Executable Artifact
+      - name: Build with PyInstaller (Linux / Mac)
+        if: matrix.os != 'windows-latest'
+        # No Linux e Mac removemos a extensão .exe do output e mantemos a flag de importação oculta
+        run: pyinstaller --onefile --hidden-import=playwright finnet.py
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: finnet-windows-executable
-          path: dist/finnet.exe
+          name: finnet-${{ matrix.os }}
+          # O caractere curinga (*) garante o mapeamento correto independente do sistema (finnet.exe, finnet ou finnet.app)
+          path: dist/finnet*
