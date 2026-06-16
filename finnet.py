@@ -12,15 +12,15 @@ import os
 import zipfile
 import tempfile
 
+import stat
+import glob
+
 def extract_and_set_browser():
     if getattr(sys, 'frozen', False):
-        # Caminho do zip dentro do pacote
         zip_path = os.path.join(sys._MEIPASS, 'data', 'browsers.zip')
-        
-        # Pasta onde será extraído (usando tempfile)
         extract_dir = os.path.join(tempfile.gettempdir(), 'playwright_browsers')
         
-        # Extrai apenas se ainda não existir
+        # Extrai apenas se a pasta não existir
         if not os.path.exists(extract_dir):
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
@@ -28,31 +28,66 @@ def extract_and_set_browser():
         else:
             print(f"Usando extração existente em {extract_dir}")
         
-        # Descobre qual é a pasta raiz que contém os navegadores
-        # O zip contém uma pasta 'playwright-browsers' que por sua vez contém 'chromium-*'
+        # Localiza a pasta raiz que contém as subpastas dos navegadores
         contents = os.listdir(extract_dir)
-        # Se houver apenas uma pasta e ela não for vazia, provavelmente é a que queremos
         if len(contents) == 1 and os.path.isdir(os.path.join(extract_dir, contents[0])):
             browsers_root = os.path.join(extract_dir, contents[0])
         else:
             browsers_root = extract_dir
         
-        # Define a variável de ambiente para o Playwright
+        # Define a variável de ambiente
         os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_root
         print(f"PLAYWRIGHT_BROWSERS_PATH definido como {browsers_root}")
         
-        # Verifica se o navegador realmente existe no caminho
-        possible_chromium = os.path.join(browsers_root, 'chromium-*')  # wildcard, mas só para debug
-        # Lista o conteúdo para confirmação
+        # ---- CORREÇÃO DE PERMISSÕES (especialmente no macOS) ----
+        # Procura pelo executável do Chromium dentro da árvore
+        # Padrão para macOS: .../chromium-*/chrome-mac-*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+        # Padrão para Linux/Windows: .../chromium-*/chrome (ou chrome.exe)
+        
+        # 1. Tenta encontrar o executável do macOS
+        chrome_pattern_mac = os.path.join(
+            browsers_root, 
+            'chromium-*', 
+            'chrome-mac-*', 
+            'Google Chrome for Testing.app', 
+            'Contents', 
+            'MacOS', 
+            'Google Chrome for Testing'
+        )
+        executaveis = glob.glob(chrome_pattern_mac)
+        
+        # 2. Se não achou, tenta o padrão Linux (chrome)
+        if not executaveis:
+            chrome_pattern_linux = os.path.join(browsers_root, 'chromium-*', 'chrome')
+            executaveis = glob.glob(chrome_pattern_linux)
+        
+        # 3. Se ainda não achou, tenta Windows (chrome.exe)
+        if not executaveis:
+            chrome_pattern_win = os.path.join(browsers_root, 'chromium-*', 'chrome.exe')
+            executaveis = glob.glob(chrome_pattern_win)
+        
+        # Aplica permissão de execução em todos os encontrados
+        for exe in executaveis:
+            try:
+                # Adiciona permissão de execução para usuário, grupo e outros
+                os.chmod(exe, os.stat(exe).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                print(f"Permissão de execução adicionada: {exe}")
+                
+                # (Opcional) Remove atributo de quarentena do macOS (se houver)
+                if sys.platform == 'darwin':
+                    import subprocess
+                    subprocess.run(['xattr', '-d', 'com.apple.quarantine', exe], 
+                                   stderr=subprocess.DEVNULL, check=False)
+            except Exception as e:
+                print(f"Erro ao ajustar permissões para {exe}: {e}")
+        
+        # Lista o conteúdo da pasta para depuração
         print("Conteúdo da pasta de navegadores:")
         for item in os.listdir(browsers_root):
             print(f"  {item}")
 
-# Executa a extração e configuração ANTES de qualquer importação do Playwright
+# Chama a extração antes de qualquer importação do Playwright
 extract_and_set_browser()
-
-# Agora você pode importar o Playwright e usá-lo normalmente
-from playwright.sync_api import sync_playwright
 
 from playwright.sync_api import sync_playwright
 
