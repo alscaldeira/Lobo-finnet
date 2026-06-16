@@ -25,21 +25,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller playwright
           playwright install chromium
-          # Compacta a pasta dos navegadores em um arquivo .zip
+
+      - name: Compress Playwright browsers into zip
+        shell: bash
+        run: |
+          # Entra no diretório onde está a pasta playwright-browsers
           cd "$PLAYWRIGHT_BROWSERS_PATH/.."
-          zip -r playwright-browsers.zip playwright-browsers
-          ls -la  # Para verificar se o zip foi criado
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            # No Windows, usa PowerShell para compactar
+            powershell -Command "Compress-Archive -Path playwright-browsers -DestinationPath playwright-browsers.zip -Force"
+          else
+            # Linux/macOS: usa zip nativo
+            zip -r playwright-browsers.zip playwright-browsers
+          fi
+          # Verifica se o zip foi criado
+          ls -la playwright-browsers.zip
 
       - name: Build Executable with PyInstaller
+        shell: bash
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
+          # Define separador para --add-data
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
             SEP=";"
           else
             SEP=":"
           fi
-          # Inclui o .zip como dado (e não a pasta diretamente)
+          # Caminho relativo: o zip está na raiz do projeto (mesmo diretório do finnet.py)
           pyinstaller --onefile --copy-metadata playwright --add-data "playwright-browsers.zip${SEP}playwright-browsers.zip" finnet.py
-        shell: bash
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

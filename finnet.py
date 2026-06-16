@@ -8,10 +8,29 @@ import random
 import os
 import sys
 
-import sys, os
+import sys
+import os
+import zipfile
+import tempfile
 
-if getattr(sys, 'frozen', False):
-    os.environ['PLAYWRIGHT_BROWSERS_PATH'] = os.path.join(sys._MEIPASS, 'playwright-browsers')
+def extract_and_set_browser():
+    """Extrai o navegador do .zip embutido e configura o Playwright."""
+    if getattr(sys, 'frozen', False):
+        # Caminho do .zip dentro do executável (extraído pelo PyInstaller)
+        zip_path = os.path.join(sys._MEIPASS, 'playwright-browsers.zip')
+        # Pasta onde será extraído (usamos uma subpasta dentro do temp)
+        extract_dir = os.path.join(tempfile.gettempdir(), 'playwright_browsers')
+        
+        # Extrai apenas se ainda não existir (evita extrair toda vez)
+        if not os.path.exists(extract_dir):
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+        
+        # Define a variável de ambiente para o Playwright
+        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = extract_dir
+
+# Chama a função imediatamente
+extract_and_set_browser()
 
 senha_cadastro = ''
 base64_bytes = ''
