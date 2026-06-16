@@ -24,15 +24,45 @@ def iniciar_automacao():
     janela.withdraw() 
     
     try:
-        # Detecta se o script está rodando a partir de um executável compilado (.frozen)
+        # Configuração de caminhos baseada no Sistema Operacional
         if getattr(sys, 'frozen', False):
-            bundle_dir = sys._MEIPASS
-            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(bundle_dir, "playwright", "driver", "package", ".local-browsers")
+            if sys.platform == 'darwin':
+                # No Mac, o browser NÃO está embutido (evita quebra de codesign no Actions)
+                # Removemos a variável para o Playwright usar a pasta padrão do usuário (~/Library/Caches)
+                if "PLAYWRIGHT_BROWSERS_PATH" in os.environ:
+                    del os.environ["PLAYWRIGHT_BROWSERS_PATH"]
+            else:
+                # Windows e Linux usam o browser embutido normalmente dentro do .exe
+                bundle_dir = sys._MEIPASS
+                os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(bundle_dir, "playwright", "driver", "package", ".local-browsers")
         else:
+            # Ambiente de desenvolvimento local
             os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
             
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            try:
+                browser = p.chromium.launch(headless=False)
+            except Exception as erro_launch:
+                # Se o browser não for encontrado (comum na primeira execução no Mac)
+                if "Executable doesn't exist" in str(erro_launch) and sys.platform == 'darwin':
+                    # Exibe um aviso rápido para o usuário não achar que o app quebrou
+                    messagebox.showinfo("Instalação", "Configurando dependências do sistema para o primeiro uso (Mac). Aguarde alguns instantes...")
+                    
+                    # Invoca o instalador interno do Playwright de forma programática
+                    from playwright.cli.main import main as playwright_cli
+                    old_argv = sys.argv
+                    sys.argv = ["playwright", "install", "chromium"]
+                    try:
+                        playwright_cli()
+                    except SystemExit:
+                        pass  # O CLI do playwright força um sys.exit(0) ao terminar a instalação
+                    sys.argv = old_argv
+                    
+                    # Tenta abrir novamente agora que está instalado
+                    browser = p.chromium.launch(headless=False)
+                else:
+                    raise erro_launch
+
             page = browser.new_page()
 
             xpathBtnGoToLoginPage = "//*[@id=\"menu-1-7cfb9e9\"]/li[5]/a"
@@ -44,7 +74,6 @@ def iniciar_automacao():
             page.locator(xpathBtnGoToLoginPage).click()
             time.sleep(random.randint(3, 6))
             
-            # Remove o elemento visual e insere a senha
             page.locator(xpathViewPassword).evaluate("elemento => elemento.remove()")
             time.sleep(random.randint(1, 3))
             page.locator(xpathInputPassword).fill(senha)

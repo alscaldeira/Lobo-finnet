@@ -44,8 +44,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          export PLAYWRIGHT_BROWSERS_PATH=0
-          # Removeu a flag --codesign-identity="-" para evitar o erro de subcomponente do Chromium
+          # Removeu o export para não embutir o browser no Mac e evitar o erro de assinatura
           pyinstaller --onefile --hidden-import=playwright finnet.py
 
       # BUILD PARA LINUX
