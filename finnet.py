@@ -14,27 +14,13 @@ import tempfile
 
 def extract_and_set_browser():
     if getattr(sys, 'frozen', False):
-        # O zip está dentro da subpasta 'data'
+        # Caminho do zip dentro do pacote
         zip_path = os.path.join(sys._MEIPASS, 'data', 'browsers.zip')
         
-        # Depuração: lista o conteúdo da pasta data
-        data_dir = os.path.join(sys._MEIPASS, 'data')
-        if os.path.exists(data_dir):
-            print(f"Conteúdo de {data_dir}:")
-            for item in os.listdir(data_dir):
-                print(f"  {item}")
-        else:
-            print(f"Pasta {data_dir} não encontrada!")
-        
-        # Tenta abrir o zip
-        try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.testzip()  # verifica integridade
-        except Exception as e:
-            raise RuntimeError(f"Erro ao abrir {zip_path}: {e}")
-        
-        # Pasta de extração (no temp)
+        # Pasta onde será extraído (usando tempfile)
         extract_dir = os.path.join(tempfile.gettempdir(), 'playwright_browsers')
+        
+        # Extrai apenas se ainda não existir
         if not os.path.exists(extract_dir):
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
@@ -42,11 +28,31 @@ def extract_and_set_browser():
         else:
             print(f"Usando extração existente em {extract_dir}")
         
-        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = extract_dir
-        print(f"PLAYWRIGHT_BROWSERS_PATH definido como {extract_dir}")
+        # Descobre qual é a pasta raiz que contém os navegadores
+        # O zip contém uma pasta 'playwright-browsers' que por sua vez contém 'chromium-*'
+        contents = os.listdir(extract_dir)
+        # Se houver apenas uma pasta e ela não for vazia, provavelmente é a que queremos
+        if len(contents) == 1 and os.path.isdir(os.path.join(extract_dir, contents[0])):
+            browsers_root = os.path.join(extract_dir, contents[0])
+        else:
+            browsers_root = extract_dir
+        
+        # Define a variável de ambiente para o Playwright
+        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_root
+        print(f"PLAYWRIGHT_BROWSERS_PATH definido como {browsers_root}")
+        
+        # Verifica se o navegador realmente existe no caminho
+        possible_chromium = os.path.join(browsers_root, 'chromium-*')  # wildcard, mas só para debug
+        # Lista o conteúdo para confirmação
+        print("Conteúdo da pasta de navegadores:")
+        for item in os.listdir(browsers_root):
+            print(f"  {item}")
 
-# Executa a extração
+# Executa a extração e configuração ANTES de qualquer importação do Playwright
 extract_and_set_browser()
+
+# Agora você pode importar o Playwright e usá-lo normalmente
+from playwright.sync_api import sync_playwright
 
 from playwright.sync_api import sync_playwright
 
@@ -56,16 +62,6 @@ base64_bytes = ''
 def iniciar_automacao():
     senha = ler_senha()
     if senha:
-
-        # Detecta se o script está rodando a partir de um executável compilado (.frozen)
-        if getattr(sys, 'frozen', False):
-            # Encontra a pasta temporária onde o executável descompactou os arquivos
-            bundle_dir = sys._MEIPASS
-            # Aponta o driver do Playwright para buscar os navegadores embutidos dentro dela
-            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(bundle_dir, "playwright", "driver", "package", ".local-browsers")
-        else:
-            # Se rodar direto via terminal (em desenvolvimento), mantém o padrão local
-            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
             
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=False)
