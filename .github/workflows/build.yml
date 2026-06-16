@@ -45,8 +45,8 @@ jobs:
           else
             SEP=":"
           fi
-          # Agora o arquivo se chama browsers.zip
-          pyinstaller --onefile --copy-metadata playwright --add-data "browsers.zip${SEP}browsers.zip" finnet.py
+          # Agora o destino é 'data/' (cria a pasta data e coloca o zip dentro)
+          pyinstaller --onefile --copy-metadata playwright --add-data "browsers.zip${SEP}data/" finnet.py
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
