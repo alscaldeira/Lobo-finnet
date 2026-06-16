@@ -22,12 +22,20 @@ jobs:
         with: 
           python-version: '3.11'
 
-      - name: Install Dependencies
+      - name: Install Dependencies (Windows)
+        if: matrix.os == 'windows-latest'
         shell: bash
         run: |
           pip install pyinstaller playwright
           export PLAYWRIGHT_BROWSERS_PATH=0
           playwright install chromium
+
+      - name: Install Dependencies (Linux / Mac)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          # No Mac/Linux, instalamos normalmente sem forçar o embutimento local do browser
+          pip install pyinstaller playwright
 
       - name: Build with PyInstaller (Windows)
         if: matrix.os == 'windows-latest'
@@ -35,17 +43,12 @@ jobs:
 
       - name: Build with PyInstaller (Mac)
         if: matrix.os == 'macos-latest'
-        # Adiciona argumentos específicos do macOS e impede que falhas de assinatura travem o build
-        run: |
-          pyinstaller --onefile --hidden-import=playwright --argv-emulation finnet.py || true
-          # Se o comando acima falhar apenas na assinatura do Chromium, tentamos gerar sem embutir o browser inteiro no binário do Mac
-          if [ ! -f dist/finnet ]; then
-            pyinstaller --onefile --hidden-import=playwright --exclude-module=playwright.driver finnet.py
-          fi
+        # Usamos --exclude-module para impedir que o PyInstaller tente puxar o driver que quebra o codesign
+        run: pyinstaller --onefile --hidden-import=playwright --exclude-module=playwright.driver finnet.py
 
       - name: Build with PyInstaller (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: pyinstaller --onefile --hidden-import=playwright finnet.py
+        run: pyinstaller --onefile --hidden-import=playwright --exclude-module=playwright.driver finnet.py
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
