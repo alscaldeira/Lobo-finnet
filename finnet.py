@@ -18,35 +18,75 @@ def extract_and_set_browser():
     if getattr(sys, 'frozen', False):
         zip_path = os.path.join(sys._MEIPASS, 'data', 'browsers.zip')
         extract_dir = os.path.join(tempfile.gettempdir(), 'playwright_browsers')
+        
         if not os.path.exists(extract_dir):
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
             print(f"Extraído para {extract_dir}")
         else:
             print(f"Usando extração existente em {extract_dir}")
+        
         contents = os.listdir(extract_dir)
         if len(contents) == 1 and os.path.isdir(os.path.join(extract_dir, contents[0])):
             browsers_root = os.path.join(extract_dir, contents[0])
         else:
             browsers_root = extract_dir
+        
         os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_root
         print(f"PLAYWRIGHT_BROWSERS_PATH definido como {browsers_root}")
         
-        # Ajuste de permissões (macOS)
-        chrome_patterns = [
-            os.path.join(browsers_root, 'chromium-*', 'chrome-mac-*', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'),
-            os.path.join(browsers_root, 'chromium-*', 'chrome'),
-            os.path.join(browsers_root, 'chromium-*', 'chrome.exe')
-        ]
-        for pattern in chrome_patterns:
-            for exe in glob.glob(pattern):
+        # ---- CORREÇÃO DE PERMISSÕES ----
+        if sys.platform == 'darwin':
+            import subprocess
+            import stat
+            
+            # 1. Dar permissão de execução para TODOS os arquivos e pastas (recursivamente)
+            for root, dirs, files in os.walk(browsers_root):
+                # Pastas: permissão de leitura/escrita/execução
+                for d in dirs:
+                    dir_path = os.path.join(root, d)
+                    try:
+                        os.chmod(dir_path, os.stat(dir_path).st_mode | stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                    except Exception as e:
+                        print(f"Erro ao ajustar permissão da pasta {dir_path}: {e}")
+                
+                # Arquivos: permissão de leitura/escrita/execução (todos)
+                for f in files:
+                    file_path = os.path.join(root, f)
+                    try:
+                        os.chmod(file_path, os.stat(file_path).st_mode | stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                    except Exception as e:
+                        print(f"Erro ao ajustar permissão do arquivo {file_path}: {e}")
+            
+            # 2. Remover quarentena de toda a árvore (recursivamente)
+            try:
+                subprocess.run(['xattr', '-d', '-r', 'com.apple.quarantine', browsers_root],
+                               stderr=subprocess.DEVNULL, check=False)
+                print("Quarentena removida recursivamente.")
+            except Exception as e:
+                print(f"Erro ao remover quarentena: {e}")
+            
+            # 3. Verificação adicional: localiza o crashpad_handler e dá permissão explicitamente
+            crashpad_pattern = os.path.join(browsers_root, '**', 'chrome_crashpad_handler')
+            import glob
+            for handler in glob.glob(crashpad_pattern, recursive=True):
                 try:
-                    os.chmod(exe, os.stat(exe).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-                    if sys.platform == 'darwin':
-                        import subprocess
-                        subprocess.run(['xattr', '-d', 'com.apple.quarantine', exe], stderr=subprocess.DEVNULL, check=False)
+                    os.chmod(handler, os.stat(handler).st_mode | stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                    print(f"Permissão explicitamente concedida ao handler: {handler}")
                 except Exception as e:
-                    print(f"Erro ao ajustar permissões para {exe}: {e}")
+                    print(f"Erro ao ajustar permissão do handler {handler}: {e}")
+            
+            print("Permissões de execução aplicadas a todos os arquivos e pastas.")
+        else:
+            # Linux/Windows: apenas executáveis relevantes
+            for root, dirs, files in os.walk(browsers_root):
+                for f in files:
+                    if f.endswith('.exe') or f == 'chrome' or f.startswith('chrome_'):
+                        file_path = os.path.join(root, f)
+                        try:
+                            os.chmod(file_path, os.stat(file_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                        except Exception as e:
+                            print(f"Erro ao ajustar permissão de {file_path}: {e}")
 
 # Executa a extração ANTES de importar o Playwright
 extract_and_set_browser()
