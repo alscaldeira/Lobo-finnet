@@ -9,7 +9,7 @@ import zipfile
 import tempfile
 import stat
 import glob
-import multiprocessing          # <--- NOVO
+import multiprocessing  
 
 # ------------------------------------------------------------
 # Função de extração (já corrigida)
@@ -106,9 +106,9 @@ def cadastrar_nova_senha():
     janela_cadastro.geometry("300x200")
     label = tk.Label(janela, text="Senha:")
     label.pack(pady=10)
-    senha_cadastro = tk.Entry(janela, show="*", width=20)
+    senha_cadastro = tk.Entry(janela_cadastro, show="*", width=20)
     senha_cadastro.pack(pady=5)
-    botao_entrar = tk.Button(janela, text="Cadastrar nova senha", command=lambda: salvar_senha(senha_cadastro))
+    botao_entrar = tk.Button(janela_cadastro, text="Cadastrar nova senha", command=lambda: salvar_senha(senha_cadastro))
     botao_entrar.pack(pady=10)
 
 def salvar_senha(senha):
