@@ -6,21 +6,31 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+  build-windows:
+    runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: {python-version: '3.x'}
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with: 
+          python-version: '3.11'
+
+      - name: Install PyInstaller and Dependencies
+        run: |
+          pip install pyinstaller
+          pip install playwright
+          # Instala também os navegadores no servidor Windows do GitHub
+          playwright install chromium
+
       - name: Build with PyInstaller
-        run: pyinstaller --onefile --noconsole finnet.py
-      - name: Upload Artifact
+        # O `--hidden-import` garante que o módulo playwright seja embutido no .exe
+        run: pyinstaller --onefile --noconsole --hidden-import=playwright finnet.py
+
+      - name: Upload Windows Executable Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-executable
-          path: dist/finnet*
+          name: finnet-windows-executable
+          path: dist/finnet.exe
