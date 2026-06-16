@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
 import base64
-from playwright.sync_api import sync_playwright
 import time
 import random
 
@@ -16,21 +15,35 @@ import tempfile
 def extract_and_set_browser():
     """Extrai o navegador do .zip embutido e configura o Playwright."""
     if getattr(sys, 'frozen', False):
-        # Caminho do .zip dentro do executável (extraído pelo PyInstaller)
-        zip_path = os.path.join(sys._MEIPASS, 'playwright-browsers.zip')
-        # Pasta onde será extraído (usamos uma subpasta dentro do temp)
+        # O arquivo .zip está em sys._MEIPASS com o nome browsers.zip
+        zip_path = os.path.join(sys._MEIPASS, 'browsers.zip')
+        
+        # Depuração: imprime o conteúdo de sys._MEIPASS para inspeção
+        print(f"Conteúdo de {sys._MEIPASS}:")
+        for item in os.listdir(sys._MEIPASS):
+            print(f"  {item}")
+
+        # Verifica se o arquivo realmente existe e é um arquivo
+        if not os.path.isfile(zip_path):
+            raise FileNotFoundError(f"Arquivo {zip_path} não encontrado ou não é um arquivo.")
+
+        # Pasta de extração (no diretório temporário)
         extract_dir = os.path.join(tempfile.gettempdir(), 'playwright_browsers')
         
-        # Extrai apenas se ainda não existir (evita extrair toda vez)
+        # Extrai apenas se ainda não existir
         if not os.path.exists(extract_dir):
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
+            print(f"Extraído para {extract_dir}")
         
         # Define a variável de ambiente para o Playwright
         os.environ['PLAYWRIGHT_BROWSERS_PATH'] = extract_dir
+        print(f"PLAYWRIGHT_BROWSERS_PATH definido como {extract_dir}")
 
 # Chama a função imediatamente
 extract_and_set_browser()
+
+from playwright.sync_api import sync_playwright
 
 senha_cadastro = ''
 base64_bytes = ''
