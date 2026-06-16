@@ -1,3 +1,12 @@
+import os
+import sys
+
+# 1. CORREÇÃO CRÍTICA: Previne o crash do --noconsole redirecionando saídas
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, 'w')
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, 'w')
+
 import tkinter as tk
 from tkinter import messagebox
 import base64
@@ -5,26 +14,23 @@ from playwright.sync_api import sync_playwright
 import time
 import random
 
-import os
-import sys
-
-# Detecta se o script está rodando a partir de um executável compilado (.frozen)
-if getattr(sys, 'frozen', False):
-    # Encontra a pasta temporária onde o executável descompactou os arquivos
-    bundle_dir = sys._MEIPASS
-    # Aponta o driver do Playwright para buscar os navegadores embutidos dentro dela
-    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(bundle_dir, "playwright", "driver", "package", ".local-browsers")
-else:
-    # Se rodar direto via terminal (em desenvolvimento), mantém o padrão local
-    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
-
-
-senha_cadastro = ''
-base64_bytes = ''
-
 def iniciar_automacao():
     senha = ler_senha()
-    if senha:
+    if not senha:
+        messagebox.showwarning("Aviso", "Por favor, cadastre uma senha.")
+        return
+
+    # Oculta a janela principal do Tkinter para não parecer que "travou"
+    janela.withdraw() 
+    
+    try:
+        # Detecta se o script está rodando a partir de um executável compilado (.frozen)
+        if getattr(sys, 'frozen', False):
+            bundle_dir = sys._MEIPASS
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(bundle_dir, "playwright", "driver", "package", ".local-browsers")
+        else:
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+            
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=False)
             page = browser.new_page()
@@ -37,14 +43,20 @@ def iniciar_automacao():
             time.sleep(random.randint(3, 6))
             page.locator(xpathBtnGoToLoginPage).click()
             time.sleep(random.randint(3, 6))
+            
+            # Remove o elemento visual e insere a senha
             page.locator(xpathViewPassword).evaluate("elemento => elemento.remove()")
             time.sleep(random.randint(1, 3))
             page.locator(xpathInputPassword).fill(senha)
 
+            # Aguarda o usuário fechar o navegador
             page.wait_for_event("close", timeout=0)
 
-    else:
-        messagebox.showwarning("Aviso", "Por favor, cadastre uma senha.")
+    except Exception as e:
+        messagebox.showerror("Erro", f"Ocorreu um erro na automação:\n{str(e)}")
+    finally:
+        # Traz a janela principal de volta após o fechamento do navegador
+        janela.deiconify()
 
 ##########
 #
@@ -53,67 +65,79 @@ def iniciar_automacao():
 ##########
 
 def cadastrar_nova_senha():
-    janela = tk.Tk()
-    janela.title("Cadastro de senha")
-    janela.geometry("300x200")
+    # 2. CORREÇÃO TKINTER: Janelas filhas devem usar Toplevel, não Tk()
+    janela_cadastro = tk.Toplevel(janela)
+    janela_cadastro.title("Cadastro de senha")
+    janela_cadastro.geometry("300x200")
+    
+    # Faz com que a janela filha bloqueie a interação com a janela mãe enquanto estiver aberta
+    janela_cadastro.grab_set() 
 
-    label = tk.Label(janela, text="Senha:")
+    label = tk.Label(janela_cadastro, text="Senha:")
     label.pack(pady=10)
 
-    senha_cadastro = tk.Entry(janela, show="*", width=20)
-    senha_cadastro.pack(pady=5)
+    input_senha = tk.Entry(janela_cadastro, show="*", width=20)
+    input_senha.pack(pady=5)
     
-    botao_entrar = tk.Button(janela, text="Cadastrar nova senha", command=lambda: salvar_senha(senha_cadastro))
-    botao_entrar.pack(pady=10)
+    def confirmar_cadastro():
+        salvar_senha(input_senha.get())
+        janela_cadastro.destroy() # Fecha a janela filha após salvar
+
+    botao_salvar = tk.Button(janela_cadastro, text="Cadastrar nova senha", command=confirmar_cadastro)
+    botao_salvar.pack(pady=10)
 
 def salvar_senha(senha):
-    string_base64 = codificar(senha.get())
+    if not senha:
+        messagebox.showwarning("Aviso", "A senha não pode ser vazia.")
+        return
+        
+    string_base64 = codificar(senha)
 
     with open("pass.key", "w", encoding="utf-8") as arquivo:
         arquivo.write(string_base64)
     
     messagebox.showinfo("Sucesso", "Senha cadastrada com sucesso!")
 
-def codificar(str):
-    string_bytes = str.encode('utf-8')
+def codificar(texto):
+    string_bytes = texto.encode('utf-8')
     base64_bytes = base64.b64encode(string_bytes)
-    string_base64 = base64_bytes.decode('utf-8')
-    return string_base64
+    return base64_bytes.decode('utf-8')
 
 def ler_senha():
     try:
         with open("pass.key", "r", encoding="utf-8") as arquivo:
-            return decodificar(arquivo.read())
+            conteudo = arquivo.read().strip()
+            if not conteudo:
+                return None
+            return decodificar(conteudo)
     except FileNotFoundError:
         return None
 
-def decodificar(str):
+def decodificar(texto_base64):
     try:
-        bytes_base64 = str.encode('utf-8')
+        bytes_base64 = texto_base64.encode('utf-8')
         bytes_originais = base64.b64decode(bytes_base64)
-        string_original = bytes_originais.decode('utf-8')
-        return string_original
+        return bytes_originais.decode('utf-8')
     except Exception:
         messagebox.showwarning("Aviso", "Senha corrompida! Por favor, cadastre uma nova senha.")
         return None
-    
 
-# Configuração da Janela
+# ==========================================
+# Configuração da Janela Principal
+# ==========================================
 janela = tk.Tk()
 janela.title("Acesso ao Bankmanager")
 janela.geometry("300x200")
 
-# Rótulo (Label)
-label = tk.Label(janela, text="")
-label.pack(pady=10)
+label_titulo = tk.Label(janela, text="Controle de Acesso")
+label_titulo.pack(pady=10)
 
-# Botão entrar
-botao_entrar = tk.Button(janela, text="Entrar", command=iniciar_automacao)
+botao_entrar = tk.Button(janela, text="Entrar", command=iniciar_automacao, width=20)
 botao_entrar.pack(pady=10)
 
-# Botão criar senha
-botao_entrar = tk.Button(janela, text="Cadastrar nova senha", command=cadastrar_nova_senha)
-botao_entrar.pack(pady=10)
+# Corrigido o nome da variável que estava sobrescrevendo botao_entrar
+botao_cadastrar = tk.Button(janela, text="Cadastrar nova senha", command=cadastrar_nova_senha, width=20)
+botao_cadastrar.pack(pady=10)
 
 # Mantém a janela aberta
 janela.mainloop()
