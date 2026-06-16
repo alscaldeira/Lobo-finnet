@@ -1,4 +1,4 @@
-name: Build Multiplatform Executables (Embedded Browser)
+name: Build Python Executable
 
 on:
   push:
@@ -7,56 +7,23 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with: 
-          python-version: '3.11'
-
-      - name: Install Dependencies and Browsers
-        shell: bash
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.x'}
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+      - name: Install dependencies
         run: |
-          pip install pyinstaller playwright
-          # Configura o caminho local para que o hook do Playwright localize os arquivos
-          export PLAYWRIGHT_BROWSERS_PATH=0
-          playwright install chromium
-
-      # BUILD PARA WINDOWS
-      - name: Build with PyInstaller (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          # PLAYWRIGHT_BROWSERS_PATH=0 avisa o gancho interno do PyInstaller para embutir o browser
-          export PLAYWRIGHT_BROWSERS_PATH=0
-          pyinstaller --onefile --noconsole --hidden-import=playwright finnet.py
-
-      # BUILD PARA MAC
-      - name: Build with PyInstaller (Mac)
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        run: |
-          # Removeu o export para não embutir o browser no Mac e evitar o erro de assinatura
-          pyinstaller --onefile --hidden-import=playwright finnet.py
-
-      # BUILD PARA LINUX
-      - name: Build with PyInstaller (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        shell: bash
-        run: |
-          export PLAYWRIGHT_BROWSERS_PATH=0
-          pyinstaller --onefile --hidden-import=playwright finnet.py
-
-      - name: Upload Artifacts
+          python -m pip install --upgrade pip
+          pip install playwright pytest-playwright
+          playwright install --with-deps
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: finnet-${{ matrix.os }}
+          name: ${{ matrix.os }}-executable
           path: dist/finnet*
