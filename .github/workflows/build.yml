@@ -45,8 +45,8 @@ jobs:
         shell: bash
         run: |
           export PLAYWRIGHT_BROWSERS_PATH=0
-          # Adicionamos a flag --codesign-identity="-" para ignorar travas de segurança do Mac
-          pyinstaller --onefile --hidden-import=playwright --codesign-identity="-" finnet.py
+          # Removeu a flag --codesign-identity="-" para evitar o erro de subcomponente do Chromium
+          pyinstaller --onefile --hidden-import=playwright finnet.py
 
       # BUILD PARA LINUX
       - name: Build with PyInstaller (Linux)
