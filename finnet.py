@@ -5,6 +5,20 @@ from playwright.sync_api import sync_playwright
 import time
 import random
 
+import os
+import sys
+
+# Detecta se o script está rodando a partir de um executável compilado (.frozen)
+if getattr(sys, 'frozen', False):
+    # Encontra a pasta temporária onde o executável descompactou os arquivos
+    bundle_dir = sys._MEIPASS
+    # Aponta o driver do Playwright para buscar os navegadores embutidos dentro dela
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(bundle_dir, "playwright", "driver", "package", ".local-browsers")
+else:
+    # Se rodar direto via terminal (em desenvolvimento), mantém o padrão local
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+
+
 senha_cadastro = ''
 base64_bytes = ''
 

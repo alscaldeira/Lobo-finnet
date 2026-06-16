@@ -1,4 +1,4 @@
-name: Build Multiplatform Executables
+name: Build Multiplatform Executables (Embedded Browser)
 
 on:
   push:
@@ -22,33 +22,50 @@ jobs:
         with: 
           python-version: '3.11'
 
-      - name: Install Dependencies (Windows)
-        if: matrix.os == 'windows-latest'
+      # Instala o Playwright de forma isolada e local em todos os sistemas operacionais
+      - name: Install Dependencies and Browsers
         shell: bash
         run: |
           pip install pyinstaller playwright
           export PLAYWRIGHT_BROWSERS_PATH=0
           playwright install chromium
 
-      - name: Install Dependencies (Linux / Mac)
-        if: matrix.os != 'windows-latest'
-        shell: bash
-        run: |
-          # No Mac/Linux, instalamos normalmente sem forçar o embutimento local do browser
-          pip install pyinstaller playwright
-
+      # BUILD PARA WINDOWS (Navegador embutido)
       - name: Build with PyInstaller (Windows)
         if: matrix.os == 'windows-latest'
-        run: pyinstaller --onefile --noconsole --hidden-import=playwright finnet.py
+        shell: bash
+        run: |
+          # Localiza onde o driver do Playwright foi salvo na pasta local do Python
+          PLAYWRIGHT_DIR=$(python -c "import os, playwright; print(os.path.dirname(playwright.__file__))")
+          pyinstaller --onefile --noconsole \
+            --hidden-import=playwright \
+            --add-data "$PLAYWRIGHT_DIR;playwright" \
+            finnet.py
 
+      # BUILD PARA MAC (Navegador embutido + Bypass de assinatura do Chromium)
       - name: Build with PyInstaller (Mac)
         if: matrix.os == 'macos-latest'
-        # Usamos --exclude-module para impedir que o PyInstaller tente puxar o driver que quebra o codesign
-        run: pyinstaller --onefile --hidden-import=playwright --exclude-module=playwright.driver finnet.py
+        shell: bash
+        run: |
+          PLAYWRIGHT_DIR=$(python -c "import os, playwright; print(os.path.dirname(playwright.__file__))")
+          # O parâmetro '--codesign-identity=-' faz uma assinatura ad-hoc sem verificar assinaturas internas do Chromium
+          pyinstaller --onefile \
+            --hidden-import=playwright \
+            --add-data "$PLAYWRIGHT_DIR:playwright" \
+            --codesign-identity="-" \
+            finnet.py
 
+      # BUILD PARA LINUX (Navegador embutido)
       - name: Build with PyInstaller (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: pyinstaller --onefile --hidden-import=playwright --exclude-module=playwright.driver finnet.py
+        shell: bash
+        run: |
+          PLAYWRIGHT_DIR=$(python -c "import os, playwright; print(os.path.dirname(playwright.__file__))")
+          # No Linux a separação do --add-data usa dois pontos (:)
+          pyinstaller --onefile \
+            --hidden-import=playwright \
+            --add-data "$PLAYWRIGHT_DIR:playwright" \
+            finnet.py
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
