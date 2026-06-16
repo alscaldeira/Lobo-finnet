@@ -61,9 +61,9 @@ senha_cadastro = ''
 base64_bytes = ''
 
 def cadastrar_nova_senha():
-    janela = tk.Tk()
-    janela.title("Cadastro de senha")
-    janela.geometry("300x200")
+    janela_cadastro = tk.Toplevel(janela) 
+    janela_cadastro.title("Cadastro de senha")
+    janela_cadastro.geometry("300x200")
     label = tk.Label(janela, text="Senha:")
     label.pack(pady=10)
     senha_cadastro = tk.Entry(janela, show="*", width=20)
@@ -87,6 +87,7 @@ def ler_senha():
         with open("pass.key", "r", encoding="utf-8") as arquivo:
             return decodificar(arquivo.read())
     except FileNotFoundError:
+        print("File pass.key not found.")
         return None
 
 def decodificar(str):
@@ -119,7 +120,6 @@ def executar_automacao(senha):
         page.locator(xpathInputPassword).fill(senha)
 
         page.wait_for_event("close", timeout=0)
-        browser.close()
 
 # ------------------------------------------------------------
 # Função acionada pelo botão "Entrar"
@@ -127,9 +127,10 @@ def executar_automacao(senha):
 def iniciar_automacao():
     senha = ler_senha()
     if senha:
+        executar_automacao(senha)
         # Cria um processo filho para executar a automação
-        p = multiprocessing.Process(target=executar_automacao, args=(senha,))
-        p.start()
+        # p = multiprocessing.Process(target=executar_automacao, args=(senha,))
+        # p.start()
         # Não faz p.join() para não travar a interface
     else:
         messagebox.showwarning("Aviso", "Por favor, cadastre uma senha.")
