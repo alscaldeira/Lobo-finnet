@@ -12,7 +12,8 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     env:
-      PLAYWRIGHT_BROWSERS_PATH: 0   # Garante que os navegadores sejam baixados na pasta local do projeto
+      # Define o caminho absoluto para os navegadores (usando o diretório atual)
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/playwright-browsers
     steps:
       - uses: actions/checkout@v4
 
@@ -25,15 +26,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller playwright
           playwright install chromium
+          # Verifica se a pasta foi criada (para depuração)
+          ls -la $PLAYWRIGHT_BROWSERS_PATH || echo "Pasta não encontrada!"
 
       - name: Build Executable with PyInstaller
         run: |
-          # Define o separador e o caminho de acordo com o SO
+          # Define o separador de acordo com o SO
           if [ "$RUNNER_OS" == "Windows" ]; then
             SEP=";"
           else
             SEP=":"
           fi
+          # Caminho relativo ao diretório atual (onde o playwright-browsers foi criado)
           pyinstaller --onefile --copy-metadata playwright --add-data "playwright-browsers${SEP}playwright-browsers" finnet.py
         shell: bash
 

@@ -8,15 +8,10 @@ import random
 import os
 import sys
 
-import sys
-import os
+import sys, os
 
-# Verifica se está rodando como executável gerado pelo PyInstaller
 if getattr(sys, 'frozen', False):
-    # Pega o caminho da pasta temporária onde os arquivos do --add-data foram extraídos
-    bundle_dir = sys._MEIPASS
-    # Aponta a variável de ambiente para a subpasta que contém os navegadores
-    os.environ['PLAYWRIGHT_BROWSERS_PATH'] = os.path.join(bundle_dir, 'playwright-browsers')
+    os.environ['PLAYWRIGHT_BROWSERS_PATH'] = os.path.join(sys._MEIPASS, 'playwright-browsers')
 
 senha_cadastro = ''
 base64_bytes = ''
