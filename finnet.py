@@ -15,18 +15,23 @@ import tempfile
 def extract_and_set_browser():
     """Extrai o navegador do .zip embutido e configura o Playwright."""
     if getattr(sys, 'frozen', False):
-        # O arquivo .zip está em sys._MEIPASS com o nome browsers.zip
         zip_path = os.path.join(sys._MEIPASS, 'browsers.zip')
         
-        # Depuração: imprime o conteúdo de sys._MEIPASS para inspeção
+        # Depuração: lista o conteúdo e o tipo do arquivo
         print(f"Conteúdo de {sys._MEIPASS}:")
         for item in os.listdir(sys._MEIPASS):
-            print(f"  {item}")
-
-        # Verifica se o arquivo realmente existe e é um arquivo
-        if not os.path.isfile(zip_path):
-            raise FileNotFoundError(f"Arquivo {zip_path} não encontrado ou não é um arquivo.")
-
+            full = os.path.join(sys._MEIPASS, item)
+            tipo = "DIR" if os.path.isdir(full) else "FILE" if os.path.isfile(full) else "OTHER"
+            print(f"  {item} ({tipo})")
+        
+        # Tenta abrir o zip diretamente (sem verificação prévia)
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                # Verifica se o zip é válido (listando os arquivos)
+                zip_ref.testzip()
+        except Exception as e:
+            raise RuntimeError(f"Erro ao abrir {zip_path}: {e}")
+        
         # Pasta de extração (no diretório temporário)
         extract_dir = os.path.join(tempfile.gettempdir(), 'playwright_browsers')
         
@@ -35,12 +40,14 @@ def extract_and_set_browser():
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
             print(f"Extraído para {extract_dir}")
+        else:
+            print(f"Usando extração existente em {extract_dir}")
         
         # Define a variável de ambiente para o Playwright
         os.environ['PLAYWRIGHT_BROWSERS_PATH'] = extract_dir
         print(f"PLAYWRIGHT_BROWSERS_PATH definido como {extract_dir}")
 
-# Chama a função imediatamente
+# Executa a extração
 extract_and_set_browser()
 
 from playwright.sync_api import sync_playwright
