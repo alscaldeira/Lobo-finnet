@@ -18,7 +18,7 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
       - name: Build with PyInstaller
-        run: pyinstaller --onefile --noconsole main.py
+        run: pyinstaller --onefile --noconsole finnet.py
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
