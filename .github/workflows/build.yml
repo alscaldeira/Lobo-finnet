@@ -22,50 +22,39 @@ jobs:
         with: 
           python-version: '3.11'
 
-      # Instala o Playwright de forma isolada e local em todos os sistemas operacionais
       - name: Install Dependencies and Browsers
         shell: bash
         run: |
           pip install pyinstaller playwright
+          # Configura o caminho local para que o hook do Playwright localize os arquivos
           export PLAYWRIGHT_BROWSERS_PATH=0
           playwright install chromium
 
-      # BUILD PARA WINDOWS (Navegador embutido)
+      # BUILD PARA WINDOWS
       - name: Build with PyInstaller (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
-          # Localiza onde o driver do Playwright foi salvo na pasta local do Python
-          PLAYWRIGHT_DIR=$(python -c "import os, playwright; print(os.path.dirname(playwright.__file__))")
-          pyinstaller --onefile --noconsole \
-            --hidden-import=playwright \
-            --add-data "$PLAYWRIGHT_DIR;playwright" \
-            finnet.py
+          # PLAYWRIGHT_BROWSERS_PATH=0 avisa o gancho interno do PyInstaller para embutir o browser
+          export PLAYWRIGHT_BROWSERS_PATH=0
+          pyinstaller --onefile --noconsole --hidden-import=playwright finnet.py
 
-      # BUILD PARA MAC (Navegador embutido + Bypass de assinatura do Chromium)
+      # BUILD PARA MAC
       - name: Build with PyInstaller (Mac)
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          PLAYWRIGHT_DIR=$(python -c "import os, playwright; print(os.path.dirname(playwright.__file__))")
-          # O parâmetro '--codesign-identity=-' faz uma assinatura ad-hoc sem verificar assinaturas internas do Chromium
-          pyinstaller --onefile \
-            --hidden-import=playwright \
-            --add-data "$PLAYWRIGHT_DIR:playwright" \
-            --codesign-identity="-" \
-            finnet.py
+          export PLAYWRIGHT_BROWSERS_PATH=0
+          # Adicionamos a flag --codesign-identity="-" para ignorar travas de segurança do Mac
+          pyinstaller --onefile --hidden-import=playwright --codesign-identity="-" finnet.py
 
-      # BUILD PARA LINUX (Navegador embutido)
+      # BUILD PARA LINUX
       - name: Build with PyInstaller (Linux)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
-          PLAYWRIGHT_DIR=$(python -c "import os, playwright; print(os.path.dirname(playwright.__file__))")
-          # No Linux a separação do --add-data usa dois pontos (:)
-          pyinstaller --onefile \
-            --hidden-import=playwright \
-            --add-data "$PLAYWRIGHT_DIR:playwright" \
-            finnet.py
+          export PLAYWRIGHT_BROWSERS_PATH=0
+          pyinstaller --onefile --hidden-import=playwright finnet.py
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
