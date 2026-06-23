@@ -255,18 +255,20 @@ def executar_automacao(senha):
                 # Aguarda meio segundo antes de checar a bandeira de novo.
             # O wait_for_timeout é crucial para o Playwright não travar.
             page.wait_for_timeout(500)
+            if evento_inserir_senha.is_set():
+                print("Sinal recebido! Inserindo senha...")
+                evento_inserir_senha.clear()
+                # agora page existe e está na thread correta
+                xpathInputPassword = "//*[@id=\"SenhaAcesso\"]"
+                input_senha = page.locator(xpathInputPassword)
+                type_like_human(page, input_senha, senha, delay_between_keys=0.13)
             
     except Exception as e:
         print(f"Automação encerrada: {e}")  
 
 def inserir_senha():
     print("Sinal enviado para inserir a senha!")
-    evento_inserir_senha.set()
-    global page
-    senha = ler_senha()
-    xpathInputPassword = "//*[@id=\"SenhaAcesso\"]"
-    input_senha = page.locator(xpathInputPassword)
-    type_like_human(page, input_senha, senha, delay_between_keys=0.13)
+    evento_inserir_senha.set()   # apenas isso
 
 # ------------------------------------------------------------
 # Função acionada pelo botão "Entrar"
