@@ -24,9 +24,9 @@ def extract_and_set_browser():
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
         
-        # 2. GARANTIA DE PERMISSÕES (Roda sempre para evitar o erro EACCES)
+        # 2. GARANTIA DE PERMISSÕES (Roda sempre para corrigir qualquer erro anterior)
         if sys.platform != 'win32':
-            print("Verificando permissões de execução dos binários...")
+            print("Verificando e corrigindo permissões de execução dos binários...")
             if sys.platform == 'darwin':
                 # Remove atributos de quarentena do Mac
                 subprocess.run(['xattr', '-cr', browsers_root], stderr=subprocess.DEVNULL, check=False)
@@ -34,10 +34,12 @@ def extract_and_set_browser():
             # Varre e reaplica permissão de execução (chmod +x) nos executáveis internos
             for root, dirs, files in os.walk(browsers_root):
                 for f in files:
-                    if 'chrome' in f or 'crashpad' in f or f.endswith('.exe') or f == 'chromium':
+                    f_lower = f.lower()  # <--- Transforma em minúsculo para a checagem funcionar!
+                    if 'chrome' in f_lower or 'crashpad' in f_lower or f_lower.endswith('.exe') or f_lower == 'chromium':
                         file_path = os.path.join(root, f)
                         try:
                             st = os.stat(file_path)
+                            # Aplica o chmod +x de forma efetiva
                             os.chmod(file_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
                         except Exception as e:
                             print(f"Aviso ao ajustar permissão de {f}: {e}")
