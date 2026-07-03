@@ -15,34 +15,27 @@ evento_inserir_senha = threading.Event()
 def extract_and_set_browser():
     if getattr(sys, 'frozen', False):
         zip_path = os.path.join(sys._MEIPASS, 'browsers.zip')
-        extract_dir = os.path.join(tempfile.gettempdir(), 'finnet_browsers')
+        
+        # MUDANÇA 1: Mudamos o nome para _v2. 
+        # Isso força o Mac a abandonar a pasta corrompida antiga e extrair do zero!
+        extract_dir = os.path.join(tempfile.gettempdir(), 'finnet_browsers_v2')
         browsers_root = os.path.join(extract_dir, 'playwright-browsers')
         
-        # 1. Extrai apenas se a pasta base não existir
         if not os.path.exists(browsers_root):
-            print("Extraindo navegador (isso ocorre apenas na primeira execução)...")
+            print("Extraindo navegador (instalação limpa)...")
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
         
-        # 2. GARANTIA DE PERMISSÕES (Roda sempre para corrigir qualquer erro anterior)
+        # MUDANÇA 2: Usar o comando nativo do sistema operacional para permissões
         if sys.platform != 'win32':
-            print("Verificando e corrigindo permissões de execução dos binários...")
+            print("Aplicando permissões globais de execução...")
             if sys.platform == 'darwin':
-                # Remove atributos de quarentena do Mac
+                # Remove a quarentena da Apple
                 subprocess.run(['xattr', '-cr', browsers_root], stderr=subprocess.DEVNULL, check=False)
             
-            # Varre e reaplica permissão de execução (chmod +x) nos executáveis internos
-            for root, dirs, files in os.walk(browsers_root):
-                for f in files:
-                    f_lower = f.lower()  # <--- Transforma em minúsculo para a checagem funcionar!
-                    if 'chrome' in f_lower or 'crashpad' in f_lower or f_lower.endswith('.exe') or f_lower == 'chromium':
-                        file_path = os.path.join(root, f)
-                        try:
-                            st = os.stat(file_path)
-                            # Aplica o chmod +x de forma efetiva
-                            os.chmod(file_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-                        except Exception as e:
-                            print(f"Aviso ao ajustar permissão de {f}: {e}")
+            # Executa 'chmod -R 755' recursivamente na pasta inteira.
+            # Isso garante que TODO E QUALQUER arquivo lá dentro vire executável.
+            subprocess.run(['chmod', '-R', '755', browsers_root], stderr=subprocess.DEVNULL, check=False)
         
         os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_root
         print(f"PLAYWRIGHT_BROWSERS_PATH definido como {browsers_root}")
