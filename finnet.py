@@ -8,44 +8,43 @@ import sys
 import zipfile
 import tempfile
 import threading
+import subprocess
 
 evento_inserir_senha = threading.Event()
 
 def extract_and_set_browser():
     if getattr(sys, 'frozen', False):
-        # O ZIP agora fica na raiz da pasta temporária do PyInstaller
         zip_path = os.path.join(sys._MEIPASS, 'browsers.zip')
-        
-        # Criamos uma pasta fixa no Temp do sistema. 
-        # Assim ele só extrai na 1ª vez que o usuário abrir o programa!
         extract_dir = os.path.join(tempfile.gettempdir(), 'finnet_browsers')
         browsers_root = os.path.join(extract_dir, 'playwright-browsers')
         
-        # Se a pasta não existe, extrai e corrige as permissões
+        # 1. Extrai apenas se a pasta base não existir
         if not os.path.exists(browsers_root):
             print("Extraindo navegador (isso ocorre apenas na primeira execução)...")
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
+        
+        # 2. GARANTIA DE PERMISSÕES (Roda sempre para evitar o erro EACCES)
+        if sys.platform != 'win32':
+            print("Verificando permissões de execução dos binários...")
+            if sys.platform == 'darwin':
+                # Remove atributos de quarentena do Mac
+                subprocess.run(['xattr', '-cr', browsers_root], stderr=subprocess.DEVNULL, check=False)
             
-            # --- RESTAURAÇÃO DE PERMISSÕES (Mac/Linux) ---
-            if sys.platform != 'win32':
-                # Remove a quarentena da Apple no Mac
-                if sys.platform == 'darwin':
-                    subprocess.run(['xattr', '-cr', browsers_root], stderr=subprocess.DEVNULL, check=False)
-                
-                # Varre a pasta extraída e dá permissão de execução aos binários
-                for root, dirs, files in os.walk(browsers_root):
-                    for f in files:
-                        if 'chrome' in f or 'crashpad' in f or f.endswith('.exe'):
-                            file_path = os.path.join(root, f)
+            # Varre e reaplica permissão de execução (chmod +x) nos executáveis internos
+            for root, dirs, files in os.walk(browsers_root):
+                for f in files:
+                    if 'chrome' in f or 'crashpad' in f or f.endswith('.exe') or f == 'chromium':
+                        file_path = os.path.join(root, f)
+                        try:
                             st = os.stat(file_path)
-                            # Equivale a dar um chmod +x
                             os.chmod(file_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                        except Exception as e:
+                            print(f"Aviso ao ajustar permissão de {f}: {e}")
         
         os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_root
         print(f"PLAYWRIGHT_BROWSERS_PATH definido como {browsers_root}")
     else:
-        # Modo de desenvolvimento
         base_path = os.path.dirname(os.path.abspath(__file__))
         os.environ['PLAYWRIGHT_BROWSERS_PATH'] = os.path.join(base_path, "playwright-browsers")
 
