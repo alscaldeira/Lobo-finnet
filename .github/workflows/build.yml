@@ -23,9 +23,18 @@ jobs:
       - name: Install dependencies and Playwright browsers
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller playwright
-          # Instala apenas o chromium para não inflar o tamanho do .exe
-          playwright install chromium 
+          pip install pyinstaller playwright playwright-stealth
+          playwright install chromium
+
+      - name: Compress Playwright browsers into browsers.zip
+        shell: bash
+        run: |
+          cd "$PLAYWRIGHT_BROWSERS_PATH/.."
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            powershell -Command "Compress-Archive -Path playwright-browsers -DestinationPath browsers.zip -Force"
+          else
+            zip -r browsers.zip playwright-browsers
+          fi
 
       - name: Build Executable with PyInstaller
         shell: bash
@@ -35,12 +44,5 @@ jobs:
           else
             SEP=":"
           fi
-          
-          # Embutimos a pasta inteira diretamente, sem zipar
-          pyinstaller --onefile --copy-metadata playwright --add-data "${PLAYWRIGHT_BROWSERS_PATH}${SEP}playwright-browsers" finnet.py
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.os }}-executable
-          path: dist/finnet*
+          # Embutimos o arquivo ZIP na raiz do executável
+          pyinstaller --onefile --copy-metadata playwright --add-data "browsers.zip${SEP}." finnet.py
