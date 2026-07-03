@@ -11,76 +11,22 @@ import threading
 
 evento_inserir_senha = threading.Event()
 
-# ------------------------------------------------------------
-# Função de extração (já corrigida) - inalterada
-# ------------------------------------------------------------
 def extract_and_set_browser():
     if getattr(sys, 'frozen', False):
-        zip_path = os.path.join(sys._MEIPASS, 'data', 'browsers.zip')
-        extract_dir = os.path.join(tempfile.gettempdir(), 'playwright_browsers')
-        
-        if not os.path.exists(extract_dir):
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-            print(f"Extraído para {extract_dir}")
-        else:
-            print(f"Usando extração existente em {extract_dir}")
-        
-        contents = os.listdir(extract_dir)
-        if len(contents) == 1 and os.path.isdir(os.path.join(extract_dir, contents[0])):
-            browsers_root = os.path.join(extract_dir, contents[0])
-        else:
-            browsers_root = extract_dir
-        
-        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_root
-        print(f"PLAYWRIGHT_BROWSERS_PATH definido como {browsers_root}")
-        
-        # ---- CORREÇÃO DE PERMISSÕES ----
-        if sys.platform == 'darwin':
-            import subprocess
-            import stat
-            
-            for root, dirs, files in os.walk(browsers_root):
-                for d in dirs:
-                    dir_path = os.path.join(root, d)
-                    try:
-                        os.chmod(dir_path, os.stat(dir_path).st_mode | stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-                    except Exception as e:
-                        print(f"Erro ao ajustar permissão da pasta {dir_path}: {e}")
-                
-                for f in files:
-                    file_path = os.path.join(root, f)
-                    try:
-                        os.chmod(file_path, os.stat(file_path).st_mode | stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-                    except Exception as e:
-                        print(f"Erro ao ajustar permissão do arquivo {file_path}: {e}")
-            
-            try:
-                subprocess.run(['xattr', '-d', '-r', 'com.apple.quarantine', browsers_root],
-                               stderr=subprocess.DEVNULL, check=False)
-                print("Quarentena removida recursivamente.")
-            except Exception as e:
-                print(f"Erro ao remover quarentena: {e}")
-            
-            crashpad_pattern = os.path.join(browsers_root, '**', 'chrome_crashpad_handler')
-            import glob
-            for handler in glob.glob(crashpad_pattern, recursive=True):
-                try:
-                    os.chmod(handler, os.stat(handler).st_mode | stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-                    print(f"Permissão explicitamente concedida ao handler: {handler}")
-                except Exception as e:
-                    print(f"Erro ao ajustar permissão do handler {handler}: {e}")
-            
-            print("Permissões de execução aplicadas a todos os arquivos e pastas.")
-        else:
-            for root, dirs, files in os.walk(browsers_root):
-                for f in files:
-                    if f.endswith('.exe') or f == 'chrome' or f.startswith('chrome_'):
-                        file_path = os.path.join(root, f)
-                        try:
-                            os.chmod(file_path, os.stat(file_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-                        except Exception as e:
-                            print(f"Erro ao ajustar permissão de {file_path}: {e}")
+        # Se for um executável, os arquivos estão na pasta temporária do PyInstaller
+        base_path = sys._MEIPASS
+    else:
+        # Se for script normal, usa a pasta atual
+        base_path = os.path.dirname(os.path.abspath(__file__))
+
+    # Aponta para a pasta que embutimos via --add-data no build.yml
+    browsers_root = os.path.join(base_path, 'playwright-browsers')
+    
+    os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_root
+    print(f"PLAYWRIGHT_BROWSERS_PATH definido como {browsers_root}")
+
+    # Nota: O PyInstaller geralmente preserva as permissões de execução (chmod +x)
+    # dos binários quando descompacta o _MEIPASS, então o Playwright deve rodar direto.
 
 extract_and_set_browser()
 
