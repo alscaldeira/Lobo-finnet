@@ -12,6 +12,7 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     env:
+      # Força o Playwright a baixar os navegadores na pasta do repositório
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/playwright-browsers
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +30,8 @@ jobs:
       - name: Compress Playwright browsers into browsers.zip
         shell: bash
         run: |
-          cd "$PLAYWRIGHT_BROWSERS_PATH/.."
+          # Garante que estamos na raiz do projeto antes de zipar
+          cd "${{ github.workspace }}"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             powershell -Command "Compress-Archive -Path playwright-browsers -DestinationPath browsers.zip -Force"
           else
@@ -39,10 +41,19 @@ jobs:
       - name: Build Executable with PyInstaller
         shell: bash
         run: |
+          # Garante que estamos na raiz do projeto antes de buildar
+          cd "${{ github.workspace }}"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             SEP=";"
           else
             SEP=":"
           fi
-          # Embutimos o arquivo ZIP na raiz do executável
           pyinstaller --onefile --copy-metadata playwright --add-data "browsers.zip${SEP}." finnet.py
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-executable
+          path: dist/finnet*
+          # Vai forçar o Actions a acusar erro se o .exe/.app não estiver na pasta dist/
+          if-no-files-found: error
