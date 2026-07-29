@@ -34,18 +34,13 @@ jobs:
       with:
         go-version: '1.23'
 
-    - name: Prepare Chromium (macOS)
+    - name: Install Chrome (macOS)
       if: matrix.goos == 'darwin'
-      run: |
-        cd go-app
-        chmod +x scripts/prepare-chromium.sh
-        scripts/prepare-chromium.sh
+      run: brew install --cask google-chrome
 
-    - name: Prepare Chromium (Windows)
+    - name: Install Chrome (Windows)
       if: matrix.goos == 'windows'
-      run: |
-        cd go-app
-        powershell -ExecutionPolicy Bypass -File scripts/prepare-chromium.ps1
+      run: choco install googlechrome -y
 
     - name: Build
       run: |
