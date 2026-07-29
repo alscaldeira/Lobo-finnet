@@ -11,10 +11,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            output: finnet
           - os: macos-latest
             goos: darwin
             goarch: arm64
