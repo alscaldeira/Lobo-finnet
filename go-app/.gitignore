@@ -1,0 +1,14 @@
+# Executáveis compilados
+finnet
+finnet.exe
+*.out
+
+# Chromium embutido (grande demais para git, será baixado no CI)
+internal/browser/assets/chromium/**/*.zip
+
+# Go build cache
+.go-build/
+
+# Arquivos temporários
+*.key
+pass.key
