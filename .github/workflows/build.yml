@@ -40,7 +40,7 @@ jobs:
 
     - name: Install Chrome (Windows)
       if: matrix.goos == 'windows'
-      run: choco install googlechrome -y
+      uses: browser-actions/setup-chrome@latest
 
     - name: Build
       run: |
