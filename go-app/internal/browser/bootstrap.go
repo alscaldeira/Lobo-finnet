@@ -16,6 +16,12 @@ var embeddedAssets embed.FS
 
 const embeddedRoot = "assets/chromium"
 
+// NOTE: Chromium binaries (.zip files) are not committed to git due to size
+// constraints (>100MB). They may be provided in assets/chromium/{os}-{arch}/
+// for offline deployments, but if absent, the system falls back to Chrome/Edge
+// already installed on the machine. This keeps deployments flexible and the
+// repo size manageable.
+
 // binaryRelPath maps GOOS-GOARCH to the executable's path inside its
 // platform's packaged Chromium zip (see assets/chromium/README.md).
 var binaryRelPath = map[string]string{
