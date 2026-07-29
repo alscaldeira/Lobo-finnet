@@ -45,8 +45,12 @@ func Bootstrap() (string, error) {
 	zipEmbeddedPath := filepath.ToSlash(filepath.Join(embeddedRoot, platformKey, "chromium.zip"))
 	zipData, err := embeddedAssets.ReadFile(zipEmbeddedPath)
 	if err != nil {
-		// Nada embutido para esta plataforma: usa o Chrome/Edge instalado.
-		return "", nil
+		// Nada embutido para esta plataforma: procura Chrome/Edge/Brave/
+		// Chromium já instalados na máquina.
+		if found := detectSystemBrowser(); found != "" {
+			return found, nil
+		}
+		return "", fmt.Errorf("nenhum navegador compatível encontrado (Chrome, Edge, Brave ou Chromium). Instale um deles para continuar")
 	}
 
 	extractDir := filepath.Join(os.TempDir(), "finnet_browser_v1", platformKey)
