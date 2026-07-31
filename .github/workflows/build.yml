@@ -15,10 +15,6 @@ jobs:
             goos: darwin
             goarch: arm64
             output: finnet
-          - os: macos-13
-            goos: darwin
-            goarch: amd64
-            output: finnet
           - os: windows-latest
             goos: windows
             goarch: amd64
