@@ -17,10 +17,10 @@ var embeddedAssets embed.FS
 const embeddedRoot = "assets/chromium"
 
 // NOTE: Chromium binaries (.zip files) are not committed to git due to size
-// constraints (>100MB). They may be provided in assets/chromium/{os}-{arch}/
-// for offline deployments, but if absent, the system falls back to Chrome/Edge
-// already installed on the machine. This keeps deployments flexible and the
-// repo size manageable.
+// constraints (>100MB). They are downloaded and embedded at build time by
+// scripts/prepare-chromium.sh (macOS) / prepare-chromium.ps1 (Windows),
+// which the CI workflow runs before `go build`. The app never falls back to
+// a browser installed on the machine — it always uses the embedded one.
 
 // binaryRelPath maps GOOS-GOARCH to the executable's path inside its
 // platform's packaged Chromium zip (see assets/chromium/README.md).
@@ -28,29 +28,22 @@ var binaryRelPath = map[string]string{
 	"darwin-arm64":  "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
 	"darwin-amd64":  "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
 	"windows-amd64": "chrome.exe",
-	"linux-amd64":   "chrome",
 }
 
 // Bootstrap extracts the Chromium build embedded for the current OS/arch
-// into a temp directory and returns its executable path. If no build was
-// embedded for this platform, it returns an empty path so the caller falls
-// back to a Chrome/Edge already installed on the machine.
+// into a temp directory and returns its executable path. It never falls
+// back to a browser already installed on the machine.
 func Bootstrap() (string, error) {
 	platformKey := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
 	relBinary, ok := binaryRelPath[platformKey]
 	if !ok {
-		return "", nil
+		return "", fmt.Errorf("plataforma não suportada: %s", platformKey)
 	}
 
 	zipEmbeddedPath := filepath.ToSlash(filepath.Join(embeddedRoot, platformKey, "chromium.zip"))
 	zipData, err := embeddedAssets.ReadFile(zipEmbeddedPath)
 	if err != nil {
-		// Nada embutido para esta plataforma: procura Chrome/Edge/Brave/
-		// Chromium já instalados na máquina.
-		if found := detectSystemBrowser(); found != "" {
-			return found, nil
-		}
-		return "", fmt.Errorf("nenhum navegador compatível encontrado (Chrome, Edge, Brave ou Chromium). Instale um deles para continuar")
+		return "", fmt.Errorf("Chromium não foi embutido neste executável para %s (build incompleto): %w", platformKey, err)
 	}
 
 	extractDir := filepath.Join(os.TempDir(), "finnet_browser_v1", platformKey)

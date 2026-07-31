@@ -15,7 +15,7 @@ jobs:
             goos: darwin
             goarch: arm64
             output: finnet
-          - os: macos-latest
+          - os: macos-13
             goos: darwin
             goarch: amd64
             output: finnet
@@ -34,13 +34,18 @@ jobs:
       with:
         go-version: '1.23'
 
-    - name: Install Chrome (macOS)
+    - name: Embed Chromium (macOS)
       if: matrix.goos == 'darwin'
-      run: brew install --cask google-chrome
+      run: |
+        cd go-app
+        chmod +x scripts/prepare-chromium.sh
+        scripts/prepare-chromium.sh ${{ matrix.goarch }}
 
-    - name: Install Chrome (Windows)
+    - name: Embed Chromium (Windows)
       if: matrix.goos == 'windows'
-      uses: browser-actions/setup-chrome@latest
+      run: |
+        cd go-app
+        powershell -ExecutionPolicy Bypass -File scripts/prepare-chromium.ps1
 
     - name: Build
       run: |
